@@ -3,6 +3,7 @@ import CryptoJS from 'crypto-js';
 import { Blowfish } from 'egoroof-blowfish';
 import { TWOFISH } from 'encryption-for-node';
 import forge from 'node-forge';
+import { useShowNotification } from '../App'; // Importe o hook
 
 // Importando os componentes de gráfico
 import {
@@ -33,7 +34,8 @@ ChartJS.register(
 const testLoops = [100, 1000, 10000, 100000];
 const algorithmNames = ['AES', 'Blowfish', 'Twofish', 'SHA-256', 'RSA'];
 
-function CryptoPerformance({ showNotification }) {
+function CryptoPerformance() {
+  const { showNotification } = useShowNotification(); // Use o hook para obter a função
     const [inputText, setInputText] = useState("Esta é uma mensagem de teste para avaliar o desempenho dos algoritmos de criptografia. O objetivo é medir o tempo de processamento e o consumo de memória.");
     const [results, setResults] = useState([]);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
