@@ -4,10 +4,12 @@
   "private": true,
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "egoroof-blowfish": "^4.0.2",
     "node-forge": "^1.3.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1"
+    "react-scripts": "5.0.1",
+    "twofish": "^1.0.1"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -33,8 +35,8 @@
     ]
   },
   "devDependencies": {
-    "tailwindcss": "^3.4.1",
     "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.47"
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.1"
   }
 }

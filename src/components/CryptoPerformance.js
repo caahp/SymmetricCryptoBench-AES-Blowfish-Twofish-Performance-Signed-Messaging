@@ -1,5 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import CryptoJS from 'crypto-js';
+import {Blowfish} from 'egoroof-blowfish';
+import {twofish} from "twofish";
 
 function CryptoPerformance({ showNotification }) {
     const [inputText, setInputText] = useState("Esta é uma mensagem de teste para avaliar o desempenho dos algoritmos de criptografia. O objetivo é medir o tempo de processamento e o consumo de memória.");
@@ -22,8 +24,21 @@ function CryptoPerformance({ showNotification }) {
 
             const algorithms = [
                 { name: 'AES', encrypt: (text) => CryptoJS.AES.encrypt(text, key, { iv: iv }) },
-                { name: 'Blowfish', encrypt: (text) => CryptoJS.Blowfish.encrypt(text, key) },
-                { name: 'Twofish', encrypt: null }
+                { 
+                name: "Blowfish",
+                encrypt: (text) => {
+                    const bf = new Blowfish("a-secret-key-123", Blowfish.MODE.ECB, Blowfish.PADDING.NULL);
+                    return bf.encode(text);
+                }
+                },
+                { 
+                name: "Twofish",
+                encrypt: (text) => {
+                    const tf = twofish();
+                    const key = Buffer.from("12345678901234567890123456789012"); // 32 bytes
+                    return tf.encrypt(key, Buffer.from(text));
+                }
+                }
             ];
 
             for (const algo of algorithms) {
