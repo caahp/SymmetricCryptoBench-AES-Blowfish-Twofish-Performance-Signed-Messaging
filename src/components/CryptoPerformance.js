@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import CryptoJS from 'crypto-js';
 import { Blowfish } from 'egoroof-blowfish';
 import { TWOFISH } from 'encryption-for-node';
+import forge from 'node-forge';
 
 // Importando os componentes de gráfico
 import {
@@ -13,6 +14,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  LogarithmicScale, // Importando a escala logarítmica
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -24,10 +26,12 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  LogarithmicScale // Registrando a escala logarítmica
 );
 
 const testLoops = [100, 1000, 10000, 100000];
+const algorithmNames = ['AES', 'Blowfish', 'Twofish', 'SHA-256', 'RSA'];
 
 function CryptoPerformance({ showNotification }) {
     const [inputText, setInputText] = useState("Esta é uma mensagem de teste para avaliar o desempenho dos algoritmos de criptografia. O objetivo é medir o tempo de processamento e o consumo de memória.");
@@ -45,27 +49,42 @@ function CryptoPerformance({ showNotification }) {
         
         const allResults = [];
 
+        showNotification("Preparando algoritmos e gerando chave RSA (pode levar um momento)...", "success");
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        const rsaKeyPair = forge.pki.rsa.generateKeyPair({ bits: 2048 });
+        const sha256Hash = CryptoJS.SHA256(inputText).toString(CryptoJS.enc.Hex);
+        const dataForRsa = forge.util.hexToBytes(sha256Hash);
+
         const key = CryptoJS.enc.Utf8.parse("a-secret-key-123");
         const iv = CryptoJS.enc.Utf8.parse("an-iv-for-aes");
         const algorithms = [
-            { name: 'AES', encrypt: (text) => CryptoJS.AES.encrypt(text, key, { iv: iv }) },
+            { name: 'AES', operation: (text) => CryptoJS.AES.encrypt(text, key, { iv: iv }) },
             { 
-            name: "Blowfish",
-            encrypt: (text) => {
-                const bf = new Blowfish("a-secret-key-123", Blowfish.MODE.ECB, Blowfish.PADDING.NULL);
-                return bf.encode(text);
-            }
+                name: "Blowfish",
+                operation: (text) => {
+                    const bf = new Blowfish("a-secret-key-123", Blowfish.MODE.ECB, Blowfish.PADDING.NULL);
+                    return bf.encode(text);
+                }
             },
             { 
-            name: "Twofish",
-            encrypt: (text) => {
-                const cipher = new TWOFISH();
-                const key = new Uint8Array(16);
-                crypto.getRandomValues(key);
-                cipher.set_key(key)  
-                const message = new TextEncoder().encode(text)
-                return cipher.encrypt(message)
-            }
+                name: "Twofish",
+                operation: (text) => {
+                    const cipher = new TWOFISH();
+                    const key = new Uint8Array(16);
+                    crypto.getRandomValues(key);
+                    cipher.set_key(key);
+                    const message = new TextEncoder().encode(text);
+                    return cipher.encrypt(message);
+                }
+            },
+            {
+                name: "SHA-256",
+                operation: (text) => CryptoJS.SHA256(text)
+            },
+            {
+                name: "RSA",
+                operation: () => rsaKeyPair.publicKey.encrypt(dataForRsa, 'RSA-OAEP')
             }
         ];
 
@@ -77,7 +96,7 @@ function CryptoPerformance({ showNotification }) {
                     const timeBefore = performance.now();
                     
                     for (let i = 0; i < loopCount; i++) {
-                        algo.encrypt(inputText);
+                        algo.name === 'RSA' ? algo.operation() : algo.operation(inputText);
                     }
                     
                     const timeAfter = performance.now();
@@ -119,10 +138,11 @@ function CryptoPerformance({ showNotification }) {
             AES: 'rgb(255, 99, 132)',
             Blowfish: 'rgb(54, 162, 235)',
             Twofish: 'rgb(75, 192, 192)',
+            'SHA-256': 'rgb(255, 206, 86)',
+            RSA: 'rgb(153, 102, 255)',
         };
 
-        const algorithms = ['AES', 'Blowfish', 'Twofish'];
-        algorithms.forEach(algoName => {
+        algorithmNames.forEach(algoName => {
             const data = labels.map(loop => {
                 const result = results.find(r => r.algorithm === algoName && r.iterations === loop);
                 if (result && result[metric] !== 'Erro') {
@@ -154,6 +174,8 @@ function CryptoPerformance({ showNotification }) {
         },
         scales: {
             y: {
+                // CORREÇÃO: A grafia correta é 'logarithmic'
+                type: title.includes('Tempo') ? 'logarithmic' : 'linear',
                 beginAtZero: true,
                 title: {
                     display: true,
@@ -172,22 +194,17 @@ function CryptoPerformance({ showNotification }) {
     return (
         <div className="bg-white p-6 rounded-b-lg shadow-lg w-full max-w-5xl mx-auto animate-fade-in border border-t-0 border-gray-200">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Análise de Desempenho Criptográfico</h2>
-            <p className="text-gray-600 mb-4">Insira um texto, e a ferramenta medirá o desempenho de diferentes algoritmos de criptografia simétrica em vários cenários de carga.</p>
+            <p className="text-gray-600 mb-4">Insira um texto, e a ferramenta medirá o desempenho de diferentes algoritmos de criptografia e hashing em vários cenários de carga.</p>
             <textarea value={inputText} onChange={(e) => setInputText(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg h-32 resize-y focus:ring-2 focus:ring-blue-500" placeholder="Digite o texto aqui..."></textarea>
             <button onClick={handleAnalyze} disabled={isAnalyzing} className="mt-4 w-full bg-blue-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-blue-700 disabled:bg-blue-300 flex items-center justify-center transition-colors">
-                {isAnalyzing ? (<><svg className="animate-spin -ml-1 mr-3 h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.96 7.96 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Analisando...</>) : "Analisar Desempenho"}
+                {isAnalyzing ? "Analisando..." : "Analisar Desempenho"}
             </button>
             {results.length > 0 && (
                 <div className="mt-6">
                     <h3 className="text-xl font-semibold text-gray-700 mb-3">Resultados Detalhados</h3>
-
-                    {/* MUDANÇA PRINCIPAL: Loop para criar uma tabela por contagem de operações */}
                     {testLoops.map(loopCount => {
-                        // Filtra os resultados apenas para a contagem de loop atual
                         const loopResults = results.filter(r => r.iterations === loopCount);
-                        // Se ainda não houver resultados para este loop, não renderiza nada
                         if (loopResults.length === 0) return null;
-
                         return (
                             <div key={loopCount} className="mb-8">
                                 <h4 className="text-lg font-semibold text-gray-800 mb-2">
@@ -216,11 +233,10 @@ function CryptoPerformance({ showNotification }) {
                             </div>
                         );
                     })}
-
                     <div className="mt-10 grid md:grid-cols-2 gap-8">
                         <div>
                             <h3 className="text-xl font-semibold text-gray-700 mb-3">Crescimento do Tempo de Execução</h3>
-                            <Line options={chartOptions('Tempo Médio de Execução por Carga')} data={timeChartData} />
+                            <Line options={chartOptions('Tempo Médio de Execução por Carga (Escala Logarítmica)')} data={timeChartData} />
                         </div>
                         {isMemoryApiSupported && (
                              <div>
